@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Colour Studio – Farbpaletten Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#FFF0F5;
+  --accent:#bc8f8f;
+  --btn:#8B6969;
+  --btn-hover:#7a5c5c;
+  --text:#3a2020;
+  --muted:#8a5f5f;
+  --card:rgba(255,240,245,0.75);
+}
+body{background:var(--bg);min-height:100vh;font-family:'DM Sans',sans-serif;color:var(--text);overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 70% 50% at 15% 10%,rgba(188,143,143,0.2) 0%,transparent 60%),radial-gradient(ellipse 50% 60% at 85% 85%,rgba(188,143,143,0.13) 0%,transparent 60%);pointer-events:none;z-index:0}
+
+.wrap{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:48px 24px 80px}
+
+.header{text-align:center;margin-bottom:44px}
+.eyebrow{font-size:.75rem;letter-spacing:.24em;text-transform:uppercase;color:var(--accent);margin-bottom:12px}
+.header h1{font-family:'Playfair Display',serif;font-size:clamp(2rem,5vw,3rem);font-weight:700;color:var(--text);line-height:1.15;margin-bottom:12px}
+.header h1 em{font-style:italic;color:var(--accent)}
+.header-sub{font-weight:300;font-size:.98rem;color:var(--muted);max-width:500px;margin:0 auto;line-height:1.65}
+.divider{display:flex;align-items:center;gap:12px;justify-content:center;margin:24px 0}
+.divider span{width:44px;height:1px;background:linear-gradient(90deg,transparent,var(--accent))}
+.divider span:last-child{background:linear-gradient(90deg,var(--accent),transparent)}
+.divider::before{content:'✦';color:var(--accent);font-size:.72rem}
+
+.panel{background:rgba(30,0,12,0.55);border-radius:20px;padding:32px;border:1px solid rgba(188,143,143,0.25);box-shadow:0 8px 40px rgba(80,20,30,0.18);backdrop-filter:blur(10px);margin-bottom:32px}
+.panel label{display:block;font-size:.73rem;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,0.65);margin-bottom:9px}
+.input-row{display:flex;gap:10px;flex-wrap:wrap}
+.input-row input{flex:1;min-width:180px;background:rgba(255,255,255,0.10);border:1px solid rgba(188,143,143,0.4);border-radius:11px;padding:13px 16px;font-family:'DM Sans',sans-serif;font-size:.95rem;color:#fff;outline:none;transition:border-color .2s,background .2s}
+.input-row input::placeholder{color:rgba(255,255,255,0.35)}
+.input-row input:focus{border-color:var(--accent);background:rgba(255,255,255,0.15)}
+
+.btn{background:var(--btn);color:#fff;border:none;border-radius:11px;padding:13px 22px;font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:500;cursor:pointer;transition:background .2s,transform .12s;white-space:nowrap;display:inline-flex;align-items:center;gap:7px}
+.btn:hover:not(:disabled){background:var(--btn-hover);transform:translateY(-1px)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-outline{background:transparent;border:1px solid rgba(188,143,143,0.5);color:var(--accent)}
+.btn-outline:hover{background:rgba(188,143,143,0.1);border-color:var(--accent)}
+.btn-sm{padding:9px 16px;font-size:.8rem}
+
+.upload-row{margin-top:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.upload-label{background:rgba(255,255,255,0.08);border:1.5px dashed rgba(188,143,143,0.45);border-radius:11px;padding:11px 18px;color:rgba(255,255,255,0.65);font-size:.84rem;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:8px}
+.upload-label:hover{background:rgba(188,143,143,0.15);border-color:var(--accent);color:#fff}
+#fileInput{display:none}
+#uploadPreview{width:44px;height:44px;border-radius:8px;object-fit:cover;display:none;border:2px solid var(--accent)}
+
+.section-title{font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:600;color:var(--text);margin-bottom:16px}
+.color-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:10px;margin-bottom:32px}
+.color-swatch{border-radius:14px;aspect-ratio:1;cursor:pointer;position:relative;box-shadow:0 3px 12px rgba(0,0,0,0.12);transition:transform .18s,box-shadow .18s;border:2px solid transparent}
+.color-swatch:hover{transform:scale(1.08);box-shadow:0 6px 22px rgba(0,0,0,0.2)}
+.color-swatch.selected{border-color:#fff;box-shadow:0 0 0 3px var(--accent),0 6px 22px rgba(0,0,0,0.2)}
+.swatch-hex{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.55);color:#fff;font-size:.58rem;text-align:center;padding:3px 2px;border-radius:0 0 12px 12px;font-family:monospace;opacity:0;transition:opacity .18s}
+.color-swatch:hover .swatch-hex{opacity:1}
+
+.action-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:28px;align-items:center}
+
+.palette-section{background:var(--card);border-radius:20px;border:1px solid rgba(188,143,143,0.22);box-shadow:0 6px 30px rgba(139,105,105,0.10);padding:28px;margin-bottom:28px;backdrop-filter:blur(6px);opacity:0;transform:translateY(20px);animation:fadeUp .5s ease forwards}
+@keyframes fadeUp{to{opacity:1;transform:translateY(0)}}
+.palette-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:12px}
+.palette-name{font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:600;color:var(--text)}
+.palette-desc{font-size:.88rem;color:var(--muted);margin-top:3px;font-weight:300}
+
+.palette-swatches{display:flex;gap:0;border-radius:16px;overflow:hidden;height:90px;margin-bottom:20px}
+.pal-color{flex:1;position:relative;cursor:pointer;transition:flex .25s}
+.pal-color:hover{flex:2}
+.pal-color-info{position:absolute;bottom:0;left:0;right:0;padding:6px 8px;background:rgba(0,0,0,0.5);color:#fff;font-size:.65rem;font-family:monospace;opacity:0;transition:opacity .18s;text-align:center}
+.pal-color:hover .pal-color-info{opacity:1}
+
+.shades-row{display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap}
+.shade-chip{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer}
+.shade-circle{width:38px;height:38px;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.12);transition:transform .15s}
+.shade-circle:hover{transform:scale(1.12)}
+.shade-hex{font-size:.6rem;color:var(--muted);font-family:monospace}
+
+.meaning-tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
+.meaning-tag{background:rgba(188,143,143,0.14);border:1px solid rgba(188,143,143,0.3);border-radius:20px;padding:4px 13px;font-size:.78rem;color:#7a4f4f}
+
+.psychology-box{background:rgba(255,240,245,0.5);border-radius:12px;padding:14px 16px;border-left:3px solid var(--accent);font-size:.86rem;color:#5a3a3a;line-height:1.6;margin-bottom:16px}
+
+.loader{text-align:center;padding:48px 0;display:none}
+.loader-ring{width:48px;height:48px;border-radius:50%;border:3px solid rgba(188,143,143,0.2);border-top-color:var(--accent);animation:spin 1s linear infinite;margin:0 auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loader-text{font-size:.86rem;color:var(--muted);letter-spacing:.06em}
+
+.error-box{background:rgba(180,60,60,0.1);border:1px solid rgba(180,60,60,0.3);border-radius:12px;padding:16px 20px;color:#9b3a3a;font-size:.88rem;margin-bottom:20px;display:none}
+
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--btn);color:#fff;padding:10px 22px;border-radius:30px;font-size:.84rem;opacity:0;transition:all .3s;pointer-events:none;z-index:100}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.site-footer{text-align:center;margin-top:64px;padding:32px 24px;border-top:1px solid rgba(188,143,143,0.2)}
+.site-footer p{font-size:.9rem;color:var(--muted);line-height:1.7}
+.site-footer a{color:var(--btn);font-weight:500;text-decoration:none;border-bottom:1px solid rgba(139,105,105,0.35)}
+.site-footer a:hover{color:var(--btn-hover)}
+
+canvas{display:none}
+@media(max-width:600px){.palette-swatches{height:64px}.panel{padding:20px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div class="eyebrow">Fotoatelier JuLi · Kreativ-Tool</div>
+    <h1>Colour<br><em>Studio</em></h1>
+    <div class="divider"><span></span><span></span></div>
+    <p class="header-sub">Wähle eine Farbe, lade dein Logo hoch oder lass dir eine zufällige Palette generieren – mit Bedeutungen, Schattierungen und PDF-Export.</p>
+  </div>
+
+  <div class="panel">
+    <label>Stichwörter oder Stil-Beschreibung</label>
+    <div class="input-row">
+      <input type="text" id="promptInput" placeholder="z.B. elegant, minimalistisch, Roségold, Natur …" maxlength="200">
+      <button class="btn" onclick="generateFromPrompt()">✦ Generieren</button>
+      <button class="btn btn-outline" onclick="generateRandom()">⟳ Zufallspalette</button>
+    </div>
+    <div class="upload-row">
+      <label class="upload-label" for="fileInput">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Logo / Bild hochladen
+      </label>
+      <input type="file" id="fileInput" accept="image/*" onchange="handleImageUpload(event)">
+      <img id="uploadPreview" alt="Vorschau">
+      <span id="uploadStatus" style="font-size:.8rem;color:var(--muted)"></span>
+    </div>
+  </div>
+
+  <div class="section-title">Farbe wählen – Palette daraus erstellen</div>
+  <div class="color-grid" id="colorGrid"></div>
+
+  <div class="action-row">
+    <button class="btn btn-sm" onclick="generateRandom()">⟳ Neue Zufallspalette</button>
+    <button class="btn btn-outline btn-sm" id="pdfBtn" onclick="exportPDF()" style="display:none">↓ Als PDF speichern</button>
+    <button class="btn btn-outline btn-sm" id="backBtn" onclick="resetResults()" style="display:none">← Zurück</button>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+  <div class="loader" id="loader"><div class="loader-ring"></div><div class="loader-text" id="loaderText">Palette wird analysiert …</div></div>
+  <div id="results"></div>
+
+  <footer class="site-footer">
+    <p>Wenn dich mehr zum Thema Fotografie und KI interessiert,<br>schau auf jeden Fall in meinem <a href="https://alfima.com/FotoatelierJuLi/p/shop" target="_blank" rel="noopener">Shop vorbei</a>.</p>
+  </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+<canvas id="canvas"></canvas>
+
+<script>
+const BASE_COLORS = [
+  {hex:'#F8B4C8',name:'Rosenpink'},{hex:'#E8907A',name:'Terrakotta'},
+  {hex:'#D4A574',name:'Caramel'},{hex:'#C4785A',name:'Burnt Sienna'},
+  {hex:'#BC8F8F',name:'Rosewood'},{hex:'#A0522D',name:'Sienna'},
+  {hex:'#8B6969',name:'Mauve Brown'},{hex:'#6B4423',name:'Schokolade'},
+  {hex:'#F5E6D3',name:'Champagner'},{hex:'#EDD9A3',name:'Goldcreme'},
+  {hex:'#D4B896',name:'Goldbeige'},{hex:'#C0A070',name:'Altgold'},
+  {hex:'#9B8B6E',name:'Khaki'},{hex:'#7A6A50',name:'Olivbraun'},
+  {hex:'#A8C5A0',name:'Salbei'},{hex:'#7BA876',name:'Eukalyptus'},
+  {hex:'#5F9EA0',name:'Kadettenblau'},{hex:'#4A9B8E',name:'Jadegrün'},
+  {hex:'#2E8B57',name:'Meeresgrün'},{hex:'#B8D4E8',name:'Himmelblau'},
+  {hex:'#89ABD4',name:'Stahlblau'},{hex:'#6B8EB5',name:'Kornblume'},
+  {hex:'#4A6FA5',name:'Königsblau'},{hex:'#2C5F8A',name:'Marineblau'},
+  {hex:'#C4A8D4',name:'Lavendel'},{hex:'#A888C0',name:'Amethyst'},
+  {hex:'#8B5E9B',name:'Violett'},{hex:'#6A3D7A',name:'Pflaume'},
+  {hex:'#F5F5F5',name:'Reinweiß'},{hex:'#D8D8D8',name:'Silber'},
+  {hex:'#A8A8A8',name:'Grau'},{hex:'#4A4A4A',name:'Anthrazit'},
+  {hex:'#2A2A2A',name:'Dunkelgrau'},{hex:'#E8B4B8',name:'Dusty Rose'},
+  {hex:'#F4A460',name:'Sandbraun'},{hex:'#DEB887',name:'Burly Wood'},
+];
+
+let currentResults = null;
+
+const SYSTEM = `Du bist ein Farbexpert und Designspezialist. Antworte NUR mit einem validen JSON-Array – kein Markdown, keine Backticks, kein Text davor oder danach.
+Erstelle eine Farbpaletten-Analyse als JSON-Array mit GENAU einem Objekt:
+[{"name":"Name der Palette","stimmung":"kurze Stimmungsbeschreibung","psychologie":"2-3 Sätze über die psychologische Wirkung","farben":[{"hex":"#XXXXXX","name":"Farbname","bedeutung":"Was diese Farbe aussagt"}],"schattierungen":[{"basis":"#XXXXXX","name":"Basisfarbe","töne":["#hell1","#hell2","#mittel","#dunkel1","#dunkel2"]}],"keywords":["Keyword1","Keyword2","Keyword3","Keyword4","Keyword5"],"anwendung":["Anwendungsfall1","Anwendungsfall2","Anwendungsfall3"],"kombination":"Design-Tipp für Webdesign/Fotografie"}]
+Die Palette soll 5 harmonisch abgestimmte Farben haben. Alle Hex-Codes müssen valide 6-stellige Werte sein.`;
+
+function buildGrid() {
+  const grid = document.getElementById('colorGrid');
+  BASE_COLORS.forEach(c => {
+    const el = document.createElement('div');
+    el.className = 'color-swatch';
+    el.style.background = c.hex;
+    el.title = c.name;
+    el.innerHTML = `<div class="swatch-hex">${c.hex}</div>`;
+    el.onclick = () => {
+      document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+      el.classList.add('selected');
+      generateFromColor(c);
+    };
+    grid.appendChild(el);
+  });
+}
+
+async function callAPI(userMsg) {
+  const maxRetries = 3;
+  for (let i = 1; i <= maxRetries; i++) {
+    setLoader(true, i === 1 ? 'Palette wird analysiert …' : `Versuch ${i}/3 …`);
+    try {
+      const res = await fetch('/api/claude', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ system: SYSTEM, messages: [{role:'user', content: userMsg}] })
+      });
+      if (res.status === 503 || res.status === 529) {
+        if (i < maxRetries) { await sleep(2500); continue; }
+        throw new Error('API überlastet. Bitte erneut versuchen.');
+      }
+      if (!res.ok) {
+        const e = await res.json().catch(()=>({}));
+        throw new Error(e?.error || `Fehler ${res.status}`);
+      }
+      const data = await res.json();
+      return data?.content?.[0]?.text || '';
+    } catch(e) {
+      if (i === maxRetries) throw e;
+      await sleep(2500);
+    }
+  }
+}
+
+async function generateFromColor(c) {
+  hideError();
+  try {
+    const raw = await callAPI(`Erstelle eine harmonische Farbpalette basierend auf der Basisfarbe ${c.hex} (${c.name}). Ideal für Fotografie und Webdesign.`);
+    processResult(raw);
+  } catch(e) { showError(e.message); setLoader(false); }
+}
+
+async function generateFromPrompt() {
+  const p = document.getElementById('promptInput').value.trim();
+  if (!p) { showError('Bitte einen Stil oder Stichwörter eingeben.'); return; }
+  hideError();
+  try {
+    const raw = await callAPI(`Erstelle eine harmonische Farbpalette passend zu: "${p}". Ideal für Fotografie und Webdesign.`);
+    processResult(raw);
+  } catch(e) { showError(e.message); setLoader(false); }
+}
+
+async function generateRandom() {
+  hideError();
+  const styles = ['elegant minimalistisch','warm boho','kühl nordisch','kräftig modern','sanft romantisch','dunkel luxuriös','frisch natürlich','verspielt bunt'];
+  const s = styles[Math.floor(Math.random()*styles.length)];
+  try {
+    const raw = await callAPI(`Erstelle eine überraschende harmonische Farbpalette im Stil "${s}" für Fotografie und Webdesign.`);
+    processResult(raw);
+  } catch(e) { showError(e.message); setLoader(false); }
+}
+
+function handleImageUpload(ev) {
+  const file = ev.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const prev = document.getElementById('uploadPreview');
+      prev.src = e.target.result;
+      prev.style.display = 'block';
+      document.getElementById('uploadStatus').textContent = 'Farben werden extrahiert …';
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = 80; canvas.height = 80;
+      ctx.drawImage(img, 0, 0, 80, 80);
+      const data = ctx.getImageData(0,0,80,80).data;
+      const colors = [];
+      for (let i = 0; i < data.length; i += 16) {
+        if (data[i+3] > 128) colors.push([data[i],data[i+1],data[i+2]]);
+      }
+      const picked = pickColors(colors, 6);
+      const hexList = picked.map(([r,g,b]) => '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join(''));
+      document.getElementById('uploadStatus').textContent = `${hexList.length} Farben erkannt`;
+      generateFromExtracted(hexList);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function pickColors(pixels, k) {
+  if (!pixels.length) return [];
+  pixels.sort((a,b)=>(a[0]*.3+a[1]*.59+a[2]*.11)-(b[0]*.3+b[1]*.59+b[2]*.11));
+  const step = Math.floor(pixels.length/k);
+  return Array.from({length:k},(_,i)=>{
+    const chunk = pixels.slice(i*step,(i+1)*step);
+    const s = chunk.reduce((a,c)=>[a[0]+c[0],a[1]+c[1],a[2]+c[2]],[0,0,0]);
+    return s.map(v=>Math.round(v/chunk.length));
+  });
+}
+
+async function generateFromExtracted(hexList) {
+  hideError();
+  try {
+    const raw = await callAPI(`Aus einem hochgeladenen Logo wurden diese Farben extrahiert: ${hexList.join(', ')}. Erstelle daraus eine harmonische Markenfarbpalette für Webdesign und Fotografie.`);
+    processResult(raw);
+  } catch(e) { showError(e.message); setLoader(false); }
+}
+
+function processResult(raw) {
+  setLoader(false);
+  try {
+    const match = raw.match(/\[[\s\S]*\]/);
+    if (!match) throw new Error('Kein JSON gefunden.');
+    const data = JSON.parse(match[0]);
+    currentResults = data;
+    renderResults(data);
+    document.getElementById('pdfBtn').style.display = '';
+    document.getElementById('backBtn').style.display = '';
+  } catch(e) { showError('Verarbeitungsfehler: ' + e.message); }
+}
+
+function renderResults(data) {
+  const container = document.getElementById('results');
+  container.innerHTML = '';
+  data.forEach((palette, pi) => {
+    const sec = document.createElement('div');
+    sec.className = 'palette-section';
+    sec.style.animationDelay = `${pi*0.12}s`;
+
+    const swatchBar = (palette.farben||[]).map(f =>
+      `<div class="pal-color" style="background:${f.hex}" onclick="copyToClipboard('${f.hex}')" title="${f.name}">
+        <div class="pal-color-info">${f.hex}<br>${f.name}</div>
+      </div>`).join('');
+
+    const colorCards = (palette.farben||[]).map(f => {
+      const lum = hexLum(f.hex);
+      const tc = lum > 160 ? '#3a2020' : '#fff';
+      return `<div style="background:${f.hex};border-radius:12px;padding:14px;flex:1;min-width:120px;color:${tc}">
+        <div style="font-family:monospace;font-size:.7rem;opacity:.8;margin-bottom:4px">${f.hex}</div>
+        <div style="font-weight:500;font-size:.88rem;margin-bottom:6px">${f.name}</div>
+        <div style="font-size:.75rem;opacity:.85;line-height:1.4">${f.bedeutung||''}</div>
+      </div>`;
+    }).join('');
+
+    let shadesHTML = '';
+    (palette.schattierungen||[]).forEach(s => {
+      const chips = (s.töne||[]).map(hex =>
+        `<div class="shade-chip" onclick="copyToClipboard('${hex}')">
+          <div class="shade-circle" style="background:${hex}"></div>
+          <div class="shade-hex">${hex}</div>
+        </div>`).join('');
+      shadesHTML += `<div style="margin-bottom:14px">
+        <div style="font-size:.75rem;color:var(--muted);margin-bottom:8px;letter-spacing:.1em;text-transform:uppercase">${s.name} – Schattierungen</div>
+        <div class="shades-row">${chips}</div>
+      </div>`;
+    });
+
+    const kwHTML = (palette.keywords||[]).map(k=>`<span class="meaning-tag">${k}</span>`).join('');
+    const appHTML = (palette.anwendung||[]).map(a=>`<span class="meaning-tag">→ ${a}</span>`).join('');
+
+    sec.innerHTML = `
+      <div class="palette-header">
+        <div><div class="palette-name">${palette.name}</div><div class="palette-desc">${palette.stimmung||''}</div></div>
+      </div>
+      <div class="palette-swatches">${swatchBar}</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">${colorCards}</div>
+      <div class="psychology-box">${palette.psychologie||''}</div>
+      ${shadesHTML}
+      <div style="margin-bottom:14px">
+        <div style="font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:8px">Stimmung & Keywords</div>
+        <div class="meaning-tags">${kwHTML}</div>
+      </div>
+      <div style="margin-bottom:14px">
+        <div style="font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:8px">Anwendungsbereiche</div>
+        <div class="meaning-tags">${appHTML}</div>
+      </div>
+      ${palette.kombination?`<div class="psychology-box" style="margin-bottom:0"><strong>Design-Tipp:</strong> ${palette.kombination}</div>`:''}
+    `;
+    container.appendChild(sec);
+  });
+}
+
+function exportPDF() {
+  if (!currentResults || !window.jspdf) { showError('PDF nicht verfügbar.'); return; }
+  const {jsPDF} = window.jspdf;
+  const doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const W=210, M=18; let y=M;
+  doc.setFont('helvetica','bold'); doc.setFontSize(22); doc.setTextColor(58,32,32);
+  doc.text('Colour Studio',M,y); y+=10;
+  doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(138,95,95);
+  doc.text('Farbpaletten Generator – Fotoatelier JuLi',M,y); y+=12;
+  currentResults.forEach(palette => {
+    if(y>240){doc.addPage();y=M;}
+    doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.setTextColor(58,32,32);
+    doc.text(palette.name,M,y); y+=6;
+    doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(138,95,95);
+    doc.text(palette.stimmung||'',M,y); y+=8;
+    const bw=(W-M*2)/(palette.farben||[]).length;
+    (palette.farben||[]).forEach((f,i)=>{
+      const {r,g,b}=hexRgb(f.hex);
+      doc.setFillColor(r,g,b); doc.rect(M+i*bw,y,bw,18,'F');
+    }); y+=20;
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(90,58,58);
+    (palette.farben||[]).forEach((f,i)=>{
+      doc.text(f.hex,M+i*bw+1,y);
+      doc.text(f.name.substring(0,12),M+i*bw+1,y+4);
+    }); y+=10;
+    const lines=doc.splitTextToSize(palette.psychologie||'',W-M*2);
+    doc.setFontSize(8.5); doc.setTextColor(58,32,32);
+    doc.text(lines,M,y); y+=lines.length*4+6;
+    doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(188,143,143);
+    doc.text('Keywords: ',M,y);
+    doc.setFont('helvetica','normal'); doc.setTextColor(90,58,58);
+    doc.text((palette.keywords||[]).join(' · '),M+20,y); y+=6;
+    if(palette.kombination){
+      const tl=doc.splitTextToSize('Design-Tipp: '+palette.kombination,W-M*2);
+      doc.setFont('helvetica','italic'); doc.setFontSize(8);
+      doc.text(tl,M,y); y+=tl.length*4;
+    }
+    y+=14;
+  });
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(188,143,143);
+  doc.text('Erstellt mit Colour Studio · Fotoatelier JuLi · alfima.com/FotoatelierJuLi/p/shop',M,287);
+  doc.save('farbpalette-fotoatelier-juli.pdf');
+}
+
+function hexRgb(hex){const h=hex.replace('#','');return{r:parseInt(h.slice(0,2),16),g:parseInt(h.slice(2,4),16),b:parseInt(h.slice(4,6),16)};}
+function hexLum(hex){const{r,g,b}=hexRgb(hex);return .299*r+.587*g+.114*b;}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+function copyToClipboard(t){navigator.clipboard?.writeText(t).catch(()=>{});showToast(`${t} kopiert!`);}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000);}
+function setLoader(show,text=''){document.getElementById('loader').style.display=show?'block':'none';if(text)document.getElementById('loaderText').textContent=text;}
+function showError(msg){const b=document.getElementById('errorBox');b.textContent=msg;b.style.display='block';}
+function hideError(){document.getElementById('errorBox').style.display='none';}
+function resetResults(){document.getElementById('results').innerHTML='';document.getElementById('pdfBtn').style.display='none';document.getElementById('backBtn').style.display='none';document.querySelectorAll('.color-swatch').forEach(s=>s.classList.remove('selected'));currentResults=null;hideError();}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  buildGrid();
+  document.getElementById('promptInput').addEventListener('keydown',e=>{if(e.key==='Enter')generateFromPrompt();});
+});
+</script>
+</body>
+</html>
